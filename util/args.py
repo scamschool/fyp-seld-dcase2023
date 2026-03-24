@@ -40,6 +40,7 @@ def get_args():
     parser.add_argument('--val-wav-txt', '-valwt', type=file_path, default='./data_dcase2023_task3/list_dataset/dcase2023t3_foa_devtest.txt', help='Val wave file list text.')
     parser.add_argument('--eval-wav-txt', '-evalwt', type=file_path, default=None, help='Eval wave file list text.')
     parser.add_argument('--eval-model', '-em', type=file_path, default=None, help='Eval model.')
+    parser.add_argument('--pretrained-model', '-pm', type=str, default=None, help='Path to pretrained model checkpoint for finetuning.')
     # net
     parser.add_argument('--net', '-n', default='crnn', choices=['crnn'], help='Neural network architecture.')
     # optimizer
