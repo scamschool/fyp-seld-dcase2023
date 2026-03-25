@@ -19,10 +19,11 @@ def dir_path(string):
 
 
 def model_monitor_path(string):
-    if string == './data_dcase2023_task3/model_monitor':  # default is OK even if not a dir
+    if string == './data_dcase2023_task3/model_monitor':
         return string
     else:
         dir_path(string)
+        return string   # ← add this line
 
 
 def get_args():
