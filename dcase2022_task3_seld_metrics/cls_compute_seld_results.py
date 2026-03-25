@@ -54,17 +54,33 @@ class ComputeSELDResults(object):
 
         # Load feature class
         self._feat_cls = cls_feature_class.FeatureClass(params)
-        
+
         # collect reference files
+        # Supports two layouts:
+        #   1. Subfoldered (STARSS23 style): metadata_dev/dev-test-sony/fold4_room1_mix001.csv
+        #   2. Flat (internal dataset style): metadata_dev/internal/fold2_room1_mix001.csv
         self._ref_labels = {}
-        for split in os.listdir(self._desc_dir):      
-            for ref_file in os.listdir(os.path.join(self._desc_dir, split)):
-                # Load reference description file
-                gt_dict = self._feat_cls.load_output_format_file(os.path.join(self._desc_dir, split, ref_file))
+        for split in os.listdir(self._desc_dir):
+            split_path = os.path.join(self._desc_dir, split)
+            if os.path.isdir(split_path):
+                # This is a subfolder — iterate its contents
+                for ref_file in os.listdir(split_path):
+                    ref_file_path = os.path.join(split_path, ref_file)
+                    if not os.path.isfile(ref_file_path) or not ref_file.endswith('.csv'):
+                        continue
+                    # Load reference description file
+                    gt_dict = self._feat_cls.load_output_format_file(ref_file_path)
+                    if not self._use_polar_format:
+                        gt_dict = self._feat_cls.convert_output_format_polar_to_cartesian(gt_dict)
+                    nb_ref_frames = max(list(gt_dict.keys()))
+                    self._ref_labels[ref_file] = [self._feat_cls.segment_labels(gt_dict, nb_ref_frames), nb_ref_frames]
+            elif split.endswith('.csv'):
+                # This is a flat CSV file directly in the desc_dir
+                gt_dict = self._feat_cls.load_output_format_file(split_path)
                 if not self._use_polar_format:
                     gt_dict = self._feat_cls.convert_output_format_polar_to_cartesian(gt_dict)
                 nb_ref_frames = max(list(gt_dict.keys()))
-                self._ref_labels[ref_file] = [self._feat_cls.segment_labels(gt_dict, nb_ref_frames), nb_ref_frames]
+                self._ref_labels[split] = [self._feat_cls.segment_labels(gt_dict, nb_ref_frames), nb_ref_frames]
 
         self._nb_ref_files = len(self._ref_labels)
         self._average = params['average']
@@ -136,7 +152,7 @@ class ComputeSELDResults(object):
                 # Overall SED and DOA scores
                 partial_estimates.append(leave_one_out_est)
             partial_estimates = np.array(partial_estimates)
-                    
+
             estimate, bias, std_err, conf_interval = [-1]*len(global_values), [-1]*len(global_values), [-1]*len(global_values), [-1]*len(global_values)
             for i in range(len(global_values)):
                 estimate[i], bias[i], std_err[i], conf_interval[i] = jackknife_estimation(
@@ -145,8 +161,8 @@ class ComputeSELDResults(object):
                            significance_level=0.05
                            )
             return [ER, conf_interval[0]], [F, conf_interval[1]], [LE, conf_interval[2]], [LR, conf_interval[3]], [seld_scr, conf_interval[4]], [classwise_results, np.array(conf_interval)[5:].reshape(5,13,2) if len(classwise_results) else []]
-      
-        else:      
+
+        else:
             return ER, F, LE, LR, seld_scr, classwise_results
 
     def get_consolidated_SELD_results(self, pred_files_path, score_type_list=['all', 'room']):
@@ -202,11 +218,11 @@ def reshape_3Dto2D(A):
 if __name__ == "__main__":
     pred_output_format_files = 'results/3_11553814_dev_split0_multiaccdoa_foa_20220429142557_test' # Path of the DCASEoutput format files
     params = parameters.get_params()
-    # Compute just the DCASE final results 
+    # Compute just the DCASE final results
     score_obj = ComputeSELDResults(params)
     use_jackknife=False
     ER, F, LE, LR, seld_scr, classwise_test_scr = score_obj.get_SELD_Results(pred_output_format_files,is_jackknife=use_jackknife )
-   
+
     print('SELD score (early stopping metric): {:0.2f} {}'.format(seld_scr[0] if use_jackknife else seld_scr, '[{:0.2f}, {:0.2f}]'.format(seld_scr[1][0], seld_scr[1][1]) if use_jackknife else ''))
     print('SED metrics: Error rate: {:0.2f} {}, F-score: {:0.1f} {}'.format(ER[0]  if use_jackknife else ER, '[{:0.2f},  {:0.2f}]'.format(ER[1][0], ER[1][1]) if use_jackknife else '', 100*F[0]  if use_jackknife else 100*F, '[{:0.2f}, {:0.2f}]'.format(100*F[1][0], 100*F[1][1]) if use_jackknife else ''))
     print('DOA metrics: Localization error: {:0.1f} {}, Localization Recall: {:0.1f} {}'.format(LE[0] if use_jackknife else LE, '[{:0.2f}, {:0.2f}]'.format(LE[1][0], LE[1][1]) if use_jackknife else '', 100*LR[0]  if use_jackknife else 100*LR,'[{:0.2f}, {:0.2f}]'.format(100*LR[1][0], 100*LR[1][1]) if use_jackknife else ''))
@@ -215,14 +231,13 @@ if __name__ == "__main__":
         print('Class\tER\tF\tLE\tLR\tSELD_score')
         for cls_cnt in range(params['unique_classes']):
             print('{}\t{:0.2f} {}\t{:0.2f} {}\t{:0.2f} {}\t{:0.2f} {}\t{:0.2f} {}'.format(
-cls_cnt, 
-classwise_test_scr[0][0][cls_cnt] if use_jackknife else classwise_test_scr[0][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][0][cls_cnt][0], classwise_test_scr[1][0][cls_cnt][1]) if use_jackknife else '', 
-classwise_test_scr[0][1][cls_cnt] if use_jackknife else classwise_test_scr[1][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][1][cls_cnt][0], classwise_test_scr[1][1][cls_cnt][1]) if use_jackknife else '', 
-classwise_test_scr[0][2][cls_cnt] if use_jackknife else classwise_test_scr[2][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][2][cls_cnt][0], classwise_test_scr[1][2][cls_cnt][1]) if use_jackknife else '', 
-classwise_test_scr[0][3][cls_cnt] if use_jackknife else classwise_test_scr[3][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][3][cls_cnt][0], classwise_test_scr[1][3][cls_cnt][1]) if use_jackknife else '', 
+cls_cnt,
+classwise_test_scr[0][0][cls_cnt] if use_jackknife else classwise_test_scr[0][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][0][cls_cnt][0], classwise_test_scr[1][0][cls_cnt][1]) if use_jackknife else '',
+classwise_test_scr[0][1][cls_cnt] if use_jackknife else classwise_test_scr[1][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][1][cls_cnt][0], classwise_test_scr[1][1][cls_cnt][1]) if use_jackknife else '',
+classwise_test_scr[0][2][cls_cnt] if use_jackknife else classwise_test_scr[2][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][2][cls_cnt][0], classwise_test_scr[1][2][cls_cnt][1]) if use_jackknife else '',
+classwise_test_scr[0][3][cls_cnt] if use_jackknife else classwise_test_scr[3][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][3][cls_cnt][0], classwise_test_scr[1][3][cls_cnt][1]) if use_jackknife else '',
 classwise_test_scr[0][4][cls_cnt] if use_jackknife else classwise_test_scr[4][cls_cnt], '[{:0.2f}, {:0.2f}]'.format(classwise_test_scr[1][4][cls_cnt][0], classwise_test_scr[1][4][cls_cnt][1]) if use_jackknife else ''))
 
 
     # UNCOMMENT to Compute DCASE results along with room-wise performance
     # score_obj.get_consolidated_SELD_results(pred_output_format_files)
-
