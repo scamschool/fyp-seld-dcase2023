@@ -19,7 +19,7 @@ def all_seld_eval(args, pred_directory, result_path=None):
     pred_output_format_files = pred_directory
 
     params = parameters.get_params()
-    score_obj = cls_compute_seld_results.ComputeSELDResults(params, ref_files_folder=os.path.dirname(ref_desc_files))
+    score_obj = cls_compute_seld_results.ComputeSELDResults(params, ref_files_folder=ref_desc_files)
     er20, f20, le, lr, seld_err, classwise_test_scr = score_obj.get_SELD_Results(pred_output_format_files)
 
     print('SELD scores')
