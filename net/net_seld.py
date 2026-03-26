@@ -45,24 +45,25 @@ class AudioVisualCRNN(nn.Module):
         x_a = x_a.transpose(2, 3)
         b_a, c_a, t_a, f_a = x_a.size()  # input: batch_size, mic_channels, time_steps, freq_bins
         b, c, t, f = b_a, c_a, t_a, f_a
+
         x_a = self.audio_encoder(x_a)
         x_a = torch.mean(x_a, dim=3)  # x_a: batch_size, feature_maps, time_steps
 
+        # Capture the actual time steps AFTER the audio encoder
+        t_encoded = x_a.size(2)
+
         x_v = x_v.view(x_v.size(0), -1)
         x_v = self.vision_encoder(x_v)
-        x_v = torch.unsqueeze(x_v, dim=-1).repeat(1, 1, x_a.size(2))  # repeat for time_steps dynamically
+        x_v = torch.unsqueeze(x_v, dim=-1).repeat(1, 1, t_encoded)  # match audio time steps
 
         x = torch.cat((x_a, x_v), 1)
-
         x = x.transpose(1, 2)  # x: batch_size, time_steps, feature_maps
         self.gru.flatten_parameters()
         (x, _) = self.gru(x)
-
         x = self.fc_xyz(x)  # event_output: batch_size, time_steps, 3 * 3 * class_num
         x = interpolate(x, self.interp_ratio)
         x = x.transpose(1, 2)
-        x = x.view(-1, 3, 3, self.class_num, t)
-
+        x = x.view(-1, 3, 3, self.class_num, t)  # t is original input time steps
         return x
 
 
