@@ -44,12 +44,11 @@ class AudioVisualCRNN(nn.Module):
     def forward(self, x_a, x_v):
         x_a = x_a.transpose(2, 3)
         b_a, c_a, t_a, f_a = x_a.size()  # input: batch_size, mic_channels, time_steps, freq_bins
-        b, c, t, f = b_a, c_a, t_a, f_a
 
         x_a = self.audio_encoder(x_a)
         x_a = torch.mean(x_a, dim=3)  # x_a: batch_size, feature_maps, time_steps
 
-        # Capture the actual time steps AFTER the audio encoder
+        # Capture the actual time steps after the audio encoder
         t_encoded = x_a.size(2)
 
         x_v = x_v.view(x_v.size(0), -1)
@@ -63,7 +62,9 @@ class AudioVisualCRNN(nn.Module):
         x = self.fc_xyz(x)  # event_output: batch_size, time_steps, 3 * 3 * class_num
         x = interpolate(x, self.interp_ratio)
         x = x.transpose(1, 2)
-        x = x.view(-1, 3, 3, self.class_num, t)  # t is original input time steps
+        # Use actual output time steps instead of original t_a
+        t_out = x.size(2)
+        x = x.view(-1, 3, 3, self.class_num, t_out)
         return x
 
 
