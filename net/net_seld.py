@@ -50,7 +50,7 @@ class AudioVisualCRNN(nn.Module):
 
         x_v = x_v.view(x_v.size(0), -1)
         x_v = self.vision_encoder(x_v)
-        x_v = torch.unsqueeze(x_v, dim=-1).repeat(1, 1, 8)  # repeat for time_steps
+        x_v = torch.unsqueeze(x_v, dim=-1).repeat(1, 1, x_a.size(2))  # repeat for time_steps dynamically
 
         x = torch.cat((x_a, x_v), 1)
 
