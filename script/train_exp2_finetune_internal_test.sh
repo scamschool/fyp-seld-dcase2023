@@ -1,6 +1,6 @@
 #!/bin/bash
 # Experiment 2: Finetune on internal dataset, test on internal dataset
-EXP1_MODEL="./data_dcase2023_task3/model_monitor/exp1_starss_train_internal_test/20260325121921/params_20260325121921_0020000.pth"
+EXP1_MODEL="./data_dcase2023_task3/model_monitor/exp1_starss_train_internal_test/20260408210402/params_20260408210402_0020000.pth"
 
 for batch_size in 16; do
     CUDA_VISIBLE_DEVICES=0 python seld.py \
