@@ -26,6 +26,13 @@ class SELDTrainer(object):
             lr=self._args.learning_rate,
             weight_decay=self._args.weight_decay
         )
+        # Load pretrained weights for finetuning if specified
+        if self._args.pretrained_model is not None:
+            print(f'Loading pretrained model from {self._args.pretrained_model}')
+            checkpoint = torch.load(self._args.pretrained_model,
+                                    map_location=self._device)
+            self._net.load_state_dict(checkpoint['model_state_dict'])
+            print('Pretrained weights loaded successfully.')
 
     def receive_input(self):
         _input_a, _input_v, _label, _ = next(iter((self._data_loader)))
